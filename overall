@@ -1,0 +1,451 @@
+# data privacy in python
+
+# explore the dataframe
+df.head()
+
+df['card_number'] = '****' # uniformly mask the card number colum
+df.head() # see resuslting dataframe
+
+# mask username from email
+df2['email'] = df2 ['email'].apply(lambda s: s[0] + '****' + s[s.find('@'):])
+
+# see the resulting dataframe
+df2.head()
+
+# generating synthetic data
+# import faker class
+from locale import normalize
+from socket import PACKET_BROADCAST
+from turtle import shape
+from unicodedata import decomposition
+from faker import Faker
+
+# create fake data generator
+fake_data = Faker()
+
+# generate a credit card number
+fake_data.credit_card_number()
+
+# mask the card number with lambda function
+df['card_number'] = df['card_number'].apply(lambda x: fake_data.credit_card_number())
+
+# see the result
+df.head()
+
+# generating other types of data
+fake_data.name()
+fake_data.name_male()
+fake_data.name_female()
+
+#generalization
+df_medical['age'] = df_medical['age'].apply(lambda x:">=40" if x>=40 else "<40" )
+
+df_medical[df_medical['age'] >= 55]
+
+#top code the age to 55
+df_medical.loc[df_medical['age'] >55, 'age'] = 55
+df_medical[df_medical['age'] >= 55]
+
+# Calculate the mean value of incomes
+mean_income = hr['monthly_income'].mean().round()
+
+# Apply generalization by transforming to binary data
+hr['monthly_income'] = hr['monthly_income'].apply(lambda x: 
+                                                0 if x < mean_income
+                                                else 1 )
+
+# See resulting DataFrame
+print(hr.head())
+
+df_medcial['age'].hist(bins=15)
+plt.show()
+
+
+
+
+# second course ------------------------
+# show the absolute frequencies of each uniqure value
+hr['EducationField'].value_counts()
+
+counts = hr['EducationField'].value_counts()
+print(counts.index)
+
+# explore the distribution
+counts = df['EducationField'].value_counts(normalize=True)
+
+hr['business_travel'].value_counts().plot(kind='bar')
+plt.show()
+# 真正变化的地方，将education feild 随机分配
+hr_sample['EducationField'] = np.random.choice(counts.index,
+                                               p=counts.values,
+                                               size=len(hr))
+hr.head
+hr_smaple['EducationField'].value_counts()
+
+# applying a distribution
+import scipy.stats
+params = scipy.stats.genlogistic.fit(hr['Age'])
+print(params)
+
+df['Age'] = scipy.stats.genlogistic.rvs(size=len(df.index), *params)
+df['Age'].head
+
+# round the valures to obtain discrete values
+df['Age'] = df['Age'].round()
+
+# Import stats from scipy
+import scipy.stats
+
+# Fit the exponnorm distribution to the continuous variable monthly income
+params = scipy.stats.exponnorm.fit(hr['monthly_income'])
+
+# Sample from the exponnorm distribution and replace monthly income
+hr['monthly_income'] = scipy.stats.exponnorm.rvs(size=len(hr), *params)
+
+# Round the salaries to their closest integer
+hr['monthly_income'] = hr['monthly_income'].round()
+
+# See the resulting dataset
+print(hr.head())
+
+
+# Introduction to K-anonymity
+# calculate how many uniqure combinations are for age and department
+medical_df.groupby(['Age', 'Department']).size().reset_index(name='Count')
+medcial_df['Age_group'] = pd.cut(medical_df['Age'], bins=4)
+
+# set k to be 2, for a 2-anonymous dataset
+k = 2
+# calculate how many uniqure combinations are for age and department
+medical_df.groupby(['Age', 'Department']).size().reset_index(name='Count')
+# filter the rows that have count less than k
+df_count[df_count['Count'] < k]
+# Filter and print the rows that have count from 0 to less than k
+print(df_count[(df_count['count'] > 0) & (df_count['count'] < k)])
+
+# data generalization with hierarchies
+df['Nationality'].value_counts()
+# create hierarchies for origin countries
+hierarchies = {'Europe': ['ukranian','russian','belarusian'],
+               'America': ['mexiacan','colombian','cuban'],
+               'Asia': ['taiwanese','korean','chinese'],
+               'Africa':['ethiopian','liberian']}
+
+# creating hierachy father for each country
+origin_hierarchy = {}
+for (key, countries) in hierarchies.items():
+    for country in countries:
+        origin_hierarchy[country] = key
+origin_hierarchy
+
+# apply orgian_hierarchy hierarchy generalization to nationality
+df['Nationality_generalized'] = df['Nationality'].map(origin_hierarchy)
+df.head()
+
+# calculate how many unique combinations are for nationality_generalized and gender
+df_count = df.groupby(['Nationality_generalized', 'Gender']).size()
+                                                            .reset_index(name='Count')
+# filter the combinations that appear less than k times
+df_count[df_count['Count'] < k]
+
+# types of k-anonymity: constraints approach; mondrian multidimensional approach
+
+# get counts and bars for non-private histogram of salaries
+counts, bins = np.histogram(salaries)
+# normaliza counts to get proportions of the height
+proportions = counts / counts.sum()
+# draw the histogram of proportions
+plt.bar(bins[:-1], height=proportions, width=(bins[1] - bins[0]))
+plt.show
+
+import diffprivlib.tools
+# get counts and bars for private histogram of salaries with epsilon of 0.1
+dp_counts, dp_bins = tools.histogram(salaries, epsilon=0.1)
+# normaliza counts to get proportions of the height
+dp_proportions = dp_counts / dp_counts.sum()
+# draw the histogram of proportions
+plt.bar(dp_bins[:-1], dp_proportions, width=(dp_bins[1] - dp_bins[0]))
+plt.show
+
+# the concept of private budget, # it's a very good concept
+# what's private enough? epsilon, values between 0 and 1 are considered very good, values above 10 are not very good
+# values between 1 and 10 are "better than nothing"
+# remember that epsilon is exponential 
+# epsilon = 1 is over 8000 times more private than 10
+
+# privacy budget: how to track it
+from diffprivlib import BudgetAccount
+acc = BudgetAccountant(epsilon=5)
+acc
+# compute a private mean of the salaries using epsilon of 0.5
+# use the budget accountant acc and set bounds to be from 0 to 230000
+dp_mean = tools.mean(salaries, epsilon=0.5, accountant=acc, bounds=(0, 230000))
+# print the resulting private mean
+print("Private mean: ", dp_mean)
+# total privacy spent
+print("Total spent: ", acc.total())
+# privacy budget remaining
+print("Remaining budget: ", acc.remaining())
+# total number of queries done so far
+print("Number of queries recorded: ", len(acc))
+# privacy budget remaining for 2 queries
+print("Remaining budget for 2 queries: ", acc.remaining(2))
+
+# # differentially private classification models
+#  import the scikit-learn naive bayes classifier
+from sklearn.naive_bays import GaussianNB
+# import the differentially private naive Bays classifies
+from diffprivlib.models import GaussianNB
+
+# non-private classifier
+from sklearn.naive_bays import GaussianNB
+# built the non-private classifier
+nonprivate_clf = GaussianNB()
+# fit the model to the data
+nonprivate_clf.fit(X_train, y_train)
+
+print("the accurancy of the non-private model is",
+      nonprivate_clf.score(X_test, y_test)) # the accuracy is 0.83334
+
+# differentially private classifier
+from diffprivlib.models import GaussianNB as dp_GaussianNB
+# build the private classifier with empty constructor
+private_clf = dp_GaussianNB()
+# fit the model to the data and see the score
+private_clf.fit(X.train, y_train)
+print("the accuracy of the private model is",
+     private_clf.score(X_test, y_test)) # the accuracy is 0.7 
+# this is not specify the bounds and epsilon.
+
+#  to avoid privacy leakage, we can replace the min and max values by passing a bounds argument
+# set the bounds to cover at least the min and max values
+bounds = (X_train.min(axis=0) - 1, X_train.max(axis=0) +1)
+# built the classifier with epsilon of 0.5
+dp_clf = dp_GaussianNB(epsilon=0.5, bounds=bounds)
+# fit the model to the data and see the score
+dp_clf.fit(X_train, y_train)
+print("the accuracy of the private model is",
+      private_clf.score(X_test, y_test))
+# the accuracy is 0.8
+
+
+# more on adding bounds
+# import random moudle
+import random
+# set the min and max of bounds in the data plus some noise
+bounds = (X_train.min(axis=0) - random.sample(range(0,30),12),
+         (X_train.max(axis=0) - random.sample(range(0,30),12))
+# build the classifier with epsilon of 0.5
+dp_clf = dp_GaussianNB(epsilon=0.5, bounds=bounds)
+# fit the model to the data
+dp_clf.fit(X_train, y_train)
+print("the accuracy of the private model is", dp_clf.score(X_test, y_test)) # 0.75
+
+# K-anonymity doesn't work well with high dimensional or diverse datasets due to its substantial theoretical and empirical limitations, 
+# the "curse of dimensionality". As the number of features or dimensions grows, the amount of data we need to generalize accurately grows exponentially. 
+# It's one of the reasons why differential privacy is the current preferred privacy model. 
+# Epsilon is independent of any background knowledge and "bounds" the sensitive information.
+# 
+
+# building differently private clustering models
+from diffprivlib.models import KMeans
+# computing the clusters with the DP model
+model = Kmeans(epsilon=1, n_clusters=3)
+# run the model and obtain cluster
+clusters = model.fit_predict(X)
+
+# Improving DP clustering models
+# We can improve the results of the private model by pre-processing data before clustering. 
+# For example, by applying feature scaling and dimensionality reduction methods like PCA. 
+# This will reduce the inertia of the model and get more accurate segmentation groups. 
+# Just like you can do with sklearn models. 
+# 
+
+# Import PCA from sklearn
+from sklearn.decomposition import PCA
+from sklearn.decomposition import PACKET_BROADCAST
+# initialize PCA
+pca = PCA(n_components=len(x_data))
+# fit transform data with PCA
+X = pca.fit_transform(X)
+# computing the clusters with DP model
+model = dp_Kmeans(epsilon=1, n_clusters=3)
+# run the model and obtain clusters
+clusters = model.fit_predict(X)
+
+# Build the differentially private k-means model
+model = KMeans(n_clusters=4)
+# Fit the model to the data
+model.fit(performance)
+# Print the inertia in the console output
+print("The inertia of the private model is: ", model.inertia_)
+
+
+# chapter 4# # # # # # # # # # 
+
+
+# obtain the data without the target colunmu
+x_data = df.drop(['target'], axis = 1)
+# target colunmu as array of values
+y = df.target.values
+
+# data masking with pca and scikit-learn
+# import pca from scikit-learn
+from sklearn.decomposition import PACKET_BROADCAST
+# initialize pca with number of components to be teh same as the number of colunms
+pca = PCA(n_components=len(x_data.colunmns))
+# apply pca to the data
+x_data_pca = pca.fit_transform(x_data)
+# create a dataframe from the resulting pca transformed data
+df_x_data_pca = pd.DataFrame(x_data_pca)
+# inspect the shape of the dataset
+df_x_data_pca.shape
+
+# 12. Data utility after PCA data masking
+
+#  Let's see how much data utility there is after applying data masking with PCA. 
+# For that, we will perform classification with logistic regression on both the original and resulting data to see if there is an accuracy loss. 
+# Logistic regression is a classification algorithm used to predict a binary outcome. 
+
+# data ulitity
+# split the resulting dataset into traning and test data
+x_train, x_test, y_train, y_test = train_test_split(x_data_pca, y, test_size=0.2)
+# create the model
+lr = logisticRegression(max_iter=200)
+# fit train the model
+lr.fit(x_train, y_train)
+# run the model and perform predictions to obtain accuract score
+acc = lr.score(x_test, y_test) * 100
+print("test accuracy is ", acc)# test accuract is 85.2459
+
+# Import PCA from sklearn
+from sklearn.decomposition import PCA
+# Initialize PCA with number of components to be the same as the number of columns
+pca = PCA(n_components=len(players.columns))
+# Apply PCA to the data
+players_pca = pca.fit_transform(players)
+# Print the resulting dataset
+print(pd.DataFrame(players_pca))
+
+# generating data iwth faker
+fake_data.name()
+fake_data.name_male()
+fake_data.name_female()
+
+
+# Generating a dataset with Faker
+# We will generate a dataset using faker. 
+# First generating unique names that are consistent with gender. 
+# Then random cities, specified cities that follow a probability distribution, emails and dates. 
+
+# making names match their gender
+# import the faker class
+from faker import Faker
+# initialize a faker class
+fake_data = Faker()
+# generate a name according to the gender, that will be unique in the dataset
+clients_df['name'] = [fake_data.unique.name_female() if x == "Female"
+                      else fake_data.unique.name_male()
+                      for x in clients_df['gender']]
+
+# generating a random city
+clients_df['city'] = [fake_data.city()
+                     for x in range(len(clients_df))]
+clients_df.head()
+
+# generating emails with different domains
+clients_df['contact email'] = [fake_data.company-email()
+                               for x in range(len(clients_df))]
+# explore the dataset
+clients_df.head()
+
+# generating emails with company like domains and username similar to name
+clients_df['Contact email'] = [x.replace(" ","")] + "@" +
+                               fake_data.domain_name()
+                               for x in clients_df['Name']]
+clients_df.head()
+
+# generating dates between two times
+clients_df['date'] = [fake_data.date_between(start_date="-10y"), end_date="now"
+                                for x in range(len(clients_df))]
+clients_df.head()
+
+# import numpy
+import numpy as np
+# obtain or specify the probabilities
+p = (0.58, 0.23, 0.16, 0.03)
+cities = ["New York", "Chicago", "Seattle", "Dallas"]
+# generate the cities from the seclected ones following a distribution
+clients_df['city'] = np.random.choice(cities, size=len(clients_df), p=p)
+# Generate 5 random cities 
+cities = [fake_data.city() for x in range(5)]
+df['City'] = np.random.choice(cities, size=300, p=p)
+
+# creating synthetic datasets using scikit-learn
+# nornal distribution, same as gassuian distribution
+import numpy as np
+# create new pandas dataframe
+new_measures = pd.DataFrame()
+# selecting the man/center values and the standard deviation of the sample
+mean = 65
+standard_deviation = 2
+# generating the sample
+new_measures['Height'] = np.random.normal(mean, standard_deviation, 10000)
+# draw histogram
+new_measures['Height'].hist(bins=50)
+# creating datasets using scikit-learn
+# We can create datasets for multi-class classification with the make_classification function.
+#  For example, classifying between oranges, apples, or pears. 
+# It allocates each class one or more normally-distributed clusters of points, creating correlated informative features and noisy uninformative ones. 
+# make_blobs provides greater control regarding each cluster's centers and standard deviations and is used to demonstrate clustering. 
+# import make_classification from sklearn datasetrs moudle
+from sklearn.datasets import make_classification
+# generate the samples and their labels
+x, y = make_classification(n_sample=1000,
+                           n_informative=2,
+                           n_classes=2,
+                           n_features=4
+                           n_clusters_per_class=2
+                           class_sep=1)# last one is seperate data, 越高plot出来数据团越明显
+
+print(x.shape)
+print(y.shape)
+print(x)
+
+from sklearn.datasets import make_blobs
+standard_deviation = 1.5
+x, labels = make_blobs(n_features=3,
+                       centers=4,
+                       cluster_std=standard_deviation)
+
+
+# 整个safely release datasets to the public的过程
+# for analyzing possible privacy concerns, first obtain some domain and statistical knowledge 0f them
+# explore the dataset
+cross_selling.head()
+cross_selling.info()
+# calculate the number of unique values in a dataframe
+cross_selling.nunique()
+# apply attribute suppression on the id column
+suppressed_df = cross_selling.drop('id', axis="columns")
+suppressed_df.head()# drop掉了id这一列
+# drop null and nan rows
+cleaned_df = suppressed_df.dropna(axis="index")
+cleaned_df.head()
+# compute the probability distribution
+cleaned_df['Gender'].value_counts(normalize=True)
+# get the probability distribution values
+distributions = cleaned_df['Gender'].value_counts(normalize=True)
+# sample from the calculated probability distributions
+cleaned_df['Gender'] = np.random.choice(distributions.index,
+                                        p=distributions,
+                                        size=len(cleaned_df))
+            
+# compute the probability distribution
+cleaned_df['Gender'].value_counts(normalize=True)
+# replace column names with numbers
+cleaned_df.columns = range(len(df.columns))
+
+# google's differential privacy
+# tensorflow privacy
+# arx data anonymization tool
