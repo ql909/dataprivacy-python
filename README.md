@@ -1,4 +1,3 @@
 # dataprivacy-python
 
-# explore the dataframe
-df.head()
+# this is the code notes from data privacy course, initial codes are from the lectures of the course.
